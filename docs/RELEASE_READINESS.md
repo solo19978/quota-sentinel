@@ -24,3 +24,13 @@ The current development prototype reuses existing CLI sign-in credentials. Anthr
 ## Release decision
 
 Do not publish an official installer or tag a public application release until source migration, licensing/attribution, provider access, security tests, installer validation and signing are complete. No signing keys, certificates with private keys, or provider credentials should be committed to GitHub.
+
+## Local installer artifact
+
+- Filename: `quota-sentinel-1.26.6-x64-setup.exe`
+- Size: 2,066,069 bytes
+- SHA-256: `d2273bad241192f0de55c0a7a2f02c685fe34c05825594cfb12b338d5798b86e`
+- Format: Windows PE32 NSIS self-extracting installer (the installer stub is 32-bit; the payload architecture has not been verified).
+- Authenticode: no embedded PE certificate table; unsigned artifact.
+- Inspection: static metadata and checksum only; not executed, malware-scanned or installation-tested.
+- Distribution: local development artifact only; binary not published to GitHub. A checksum identifies the artifact, not its safety or provenance.
