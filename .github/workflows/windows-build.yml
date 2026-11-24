@@ -1,0 +1,53 @@
+name: Windows build and verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal --no-self-update
+
+      - name: Run tests
+        run: cargo test --release --locked
+
+      - name: Build the app and installer
+        run: npx.cmd --yes @tauri-apps/cli@2.11.4 build -- --locked
+
+      - name: Prepare checksummed artifacts
+        shell: pwsh
+        run: |
+          $app = Get-Item -LiteralPath 'target/release/quota-sentinel.exe' -ErrorAction Stop
+          $installer = @(Get-ChildItem 'target/release/bundle/nsis' -Filter '*_x64-setup.exe' -File -ErrorAction Stop)
+          if ($installer.Count -ne 1) { throw 'Expected exactly one Windows x64 installer.' }
+
+          foreach ($entry in @(@{ Dir = 'app'; File = $app }, @{ Dir = 'installer'; File = $installer[0] })) {
+            $directory = Join-Path 'dist' $entry.Dir
+            New-Item -ItemType Directory -Path $directory -Force | Out-Null
+            $destination = Join-Path $directory $entry.File.Name
+            Copy-Item -LiteralPath $entry.File.FullName -Destination $destination
+            $sha = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$sha  $($entry.File.Name)" | Set-Content -LiteralPath (Join-Path $directory 'SHA256SUMS.txt') -Encoding ascii
+          }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quota-sentinel-app-${{ github.sha }}
+          path: dist/app/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quota-sentinel-installer-${{ github.sha }}
+          path: dist/installer/
+          if-no-files-found: error

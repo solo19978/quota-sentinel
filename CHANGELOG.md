@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.26.7 — development snapshot, not a public release
+
+- Migrate the complete supplied Windows application source into the repository.
+- Use native Windows COM activation and executable selection for Quick Launch.
+- Add a manually triggered Windows test/build workflow with pinned tools and Actions.
+- Produce separate unsigned app and installer artifacts with SHA-256 checksums.
+- Retain existing project documentation and the supplied upstream MIT notice.
+- Independent Windows build, runtime and release validation remain pending.
+
 ## 1.26.6 — development snapshot, not a public release
 
 - Standalone QuotaSentinel package and application identity.

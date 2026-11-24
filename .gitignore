@@ -1,0 +1,7 @@
+/target/
+/gen/
+/dist/
+*.exe
+*.pdb
+.env
+.env.*

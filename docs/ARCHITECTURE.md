@@ -17,14 +17,14 @@ flowchart LR
 
 The usage backend uses existing CLI sign-ins and non-publicly-established account usage interfaces. Supported authentication must be established before distribution. No API billing integration exists. Usage shows percentage used and provider reset times; manual refresh may be stale.
 
-Quick Launch is separate from usage retrieval. The launcher uses fixed PowerShell scripts for Start-menu discovery and file selection, validates app IDs and executable names, and invokes Windows ShellExecute without extra arguments. Locally selected paths are persisted. Publisher signatures are not validated yet.
+Quick Launch is separate from usage retrieval. The launcher uses fixed Windows application IDs through COM activation, a native file picker, executable-name validation, and Windows ShellExecute without extra arguments. Locally selected paths are persisted. Publisher signatures are not validated yet.
 
-## Standalone archive layout
+## Source layout
 
 - `src/main.rs`: usage clients, parsers, docking and IPC.
-- `src/launcher.rs`: app discovery, file selection and launch.
+- `src/launcher.rs`: registered app activation, native file selection and launch.
 - `ui/`: bundled HTML/CSS/JavaScript.
 - `Cargo.toml`, `Cargo.lock`, `build.rs`, `rust-toolchain.toml`: build configuration.
 - `tauri.conf.json`, `icons/`: application and installer configuration/assets.
 
-Archive version: 1.26.6. Full repository source migration and independent build verification remain separate from this documentation update.
+Source version: 1.26.7. The Windows build and verification workflow runs on manual dispatch, tests the locked Rust dependencies and builds separate checksummed unsigned EXE and installer artifacts. Independent build and runtime verification remain pending.

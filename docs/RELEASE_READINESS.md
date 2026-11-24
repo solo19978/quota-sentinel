@@ -1,11 +1,12 @@
 # Release readiness
 
-Status as of 24 November 2026: development snapshot 1.26.6; no public application release approved.
+Status as of 24 November 2026: development snapshot 1.26.7; no public application release approved.
 
 | Gate | Status |
 | --- | --- |
 | Public repository and documentation | Present |
-| Standalone application source migration | Pending |
+| Standalone application source migration | Version 1.26.7 source present |
+| Windows build workflow | Manual test/build workflow present; execution not yet verified |
 | Windows SignTool | Installed locally, per development report |
 | Publicly trusted signing identity | Pending; neither checked local certificate store has a usable code-signing certificate |
 | Signed and timestamped installer | Pending |
@@ -23,9 +24,9 @@ The current development prototype reuses existing CLI sign-in credentials. Anthr
 
 ## Release decision
 
-Do not publish an official installer or tag a public application release until source migration, licensing/attribution, provider access, security tests, installer validation and signing are complete. No signing keys, certificates with private keys, or provider credentials should be committed to GitHub.
+Do not publish an official installer or tag a public application release until licensing/attribution, provider access, security tests, installer validation and signing are complete. No signing keys, certificates with private keys, or provider credentials should be committed to GitHub.
 
-## Local installer artifact
+## Previous local installer artifact (1.26.6)
 
 - Filename: `quota-sentinel-1.26.6-x64-setup.exe`
 - Size: 2,066,069 bytes

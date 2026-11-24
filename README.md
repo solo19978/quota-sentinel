@@ -1,44 +1,41 @@
-# QuotaSentinel
+# quota-sentinel
 
-**Your limits. Your data. Your control.**
+An experimental Windows x64 dock for Claude Code and OpenAI Codex usage.
 
-A security-first, local-first Windows desktop dock for monitoring Claude Code and OpenAI Codex subscription usage and quickly launching Claude Desktop and ChatGPT Desktop.
+- Hover over the dotted grip to reveal both rings. Drag it to move the dock between screen edges or monitors.
+- Hover over a ring to see usage and reset times. Click the orange ring to open Claude Desktop or the blue ring to open ChatGPT Desktop.
+- If Windows cannot activate the registered desktop app, choose the matching executable. The launcher saves that path in your local Windows profile.
 
-## Current development version: 1.26.6
+## Requirements
 
-A standalone Windows x64 source archive exists. This is experimental, pre-release software; no validated public installer is available.
+The Windows x64 installer requires Microsoft Edge WebView2 to be installed. For live usage, sign in through the native Windows Claude Code and Codex CLIs using their default credential locations. The dock shows subscription usage windows where provided. API credits and billing balances are outside the current scope.
 
-## Public release status
+## Privacy and provider compatibility
 
-The GitHub repository is public, but the application source has not yet been migrated to the main branch. Windows SignTool is installed in the local development environment; neither checked certificate store contains a usable code-signing certificate. A publicly trusted signing identity and a validated signed installer are outstanding. Live usage monitoring also requires a supported provider authentication approach before distribution, particularly given Anthropic's restrictions on third-party subscription credential use.
+The Rust backend reads the existing CLI sign-in files and sends each credential to its provider's fixed HTTPS usage endpoint. The HTTP client blocks redirects and disables environment proxy discovery. The web interface receives usage percentages, reset times, and status. This prototype excludes transcript tracking, hooks, an updater, and telemetry. The desktop launcher uses Windows app registration or a locally chosen executable path.
 
-See [Release readiness](docs/RELEASE_READINESS.md) for the outstanding gates. No official downloadable installer is available.
+Live usage depends on provider endpoints that may change. Review each provider's current authentication and distribution terms before sharing a build with live credential access. Anthropic documents restrictions on third-party use of Claude subscription credentials. [Anthropic authentication and credential-use policy](https://code.claude.com/docs/en/legal-and-compliance)
 
-## Features
+## Build from source
 
-- Hover over the grip to reveal provider rings; drag to move between screen edges and monitors.
-- Hover over a ring to see session and weekly utilisation and reset times, where reported by the provider.
-- Click the orange ring to launch Claude Desktop or the blue ring to launch ChatGPT Desktop.
-- Windows Start-menu discovery with manual executable selection as fallback; selected paths are saved locally.
-- Reduced-motion support and approximately five-minute usage refresh. Manual refresh may return cached data.
+Use Windows x64, the Rust MSVC toolchain, Visual Studio C++ build tools, Node.js with npm, and WebView2. Rust is pinned in `rust-toolchain.toml`.
 
-## Security and privacy
+```powershell
+cargo test --release --locked
+npx.cmd --yes @tauri-apps/cli@2.11.4 build -- --locked
+```
 
-Native Rust backend, fixed HTTPS provider destinations, disabled redirects and environment proxy discovery, usage-only UI data, no telemetry, transcript tracking, hooks, local HTTP server or updater. Quick Launch does not require provider credentials. Publisher signature validation is not yet implemented. Supported provider authentication and distribution permissions remain release blockers. These controls are not a security certification.
+The unsigned installer is generated in `target/release/bundle/nsis/`. Code signing and clean-machine installation testing are pending.
 
-## Requirements and build
+On GitHub, run **Windows build and verification** manually from the Actions tab. A successful run provides separate artifacts for the unsigned standalone EXE and the unsigned installer, each named with the commit SHA and containing its own SHA-256 checksum.
 
-Windows x64, WebView2, native Windows Claude Code and Codex CLI sign-ins for live usage. The standalone source archive uses Rust/MSVC, Visual Studio C++ build tools, Node.js/npm and Tauri 2. Build instructions apply after the complete source is migrated into this repository. API credits and billing, multiple accounts and other operating systems are outside current implementation.
+## Source layout
 
-## Documentation
+- `src/main.rs` contains the usage clients, parsers, and dock placement.
+- `src/launcher.rs` contains native Windows app activation, launching, and file selection.
+- `ui/` contains the bundled HTML, CSS, and JavaScript.
+- `tauri.conf.json` configures the window, WebView security policy, and installer.
 
-- [Security](SECURITY.md)
-- [Privacy](PRIVACY.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Threat model](docs/THREAT_MODEL.md)
-- [Roadmap](ROADMAP.md)
-- [Contributing](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
-- [Attribution](NOTICE.md)
+## Attribution
 
-Derived from [CodeNotch](https://github.com/vinzdg/codenotch). The standalone archive includes the upstream MIT notice. Public distribution remains pending validation.
+The project derives from [CodeNotch](https://github.com/vinzdg/codenotch), including its Windows prototype and provider artwork. The upstream MIT notice is preserved in [LICENSE](LICENSE). Provider marks identify the corresponding services.
