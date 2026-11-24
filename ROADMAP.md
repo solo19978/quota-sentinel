@@ -1,8 +1,8 @@
 # Roadmap
 
-1. Standalone migration: extract source, resolve shared assets and dependencies, review upstream licence and attribution, establish branding and independent build.
-2. Provider access: verify supported authentication and distribution permission; consider credential-free official usage-page fallback. Keep API billing separate from subscription quotas.
-3. Windows validation: clean install/upgrade/uninstall, mixed-DPI displays, keyboard accessibility, live provider errors, refresh semantics and placement persistence.
-4. Release infrastructure: CI, dependency audit, isolated runtime inspection, signing, checksums, provenance and fresh scan.
-5. Public beta only after release gates pass. Proposed first independent version: 0.1.0-alpha (not released).
-6. Evaluate other providers, API credits, ARM64, macOS and Linux only after the Windows baseline is stable.
+1. Standalone source archive prepared at version 1.26.6, with independent identity and Quick Launch. Complete repository migration and verify the independent build and attribution.
+2. Verify supported provider authentication and distribution permissions; consider official usage-page fallback. Keep API billing separate.
+3. Windows validation: install/upgrade/uninstall, mixed-DPI screens, keyboard access, live provider errors, refresh and launcher discovery/path persistence. Validate publisher identity and launch-path trust boundaries.
+4. CI, dependency audit, isolated runtime inspection, signing, checksums, provenance and fresh scan.
+5. Public beta only after release gates pass; decide independent release numbering before publication.
+6. Evaluate API credits, additional providers and other platforms after the Windows baseline is stable.
