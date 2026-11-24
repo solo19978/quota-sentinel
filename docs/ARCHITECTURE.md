@@ -1,23 +1,30 @@
 # Architecture
 
-## Prototype baseline
-
-Windows x64; Rust 2021, Tauri 2, WebView2, bundled HTML/CSS/vanilla JavaScript; ureq with TLS, serde, serde_json, chrono and dirs. NSIS packaging is unsigned and requires WebView2. The standalone source migration is outstanding.
-
-## Data flow
+Windows x64; Rust 2021, Tauri 2, WebView2, bundled HTML/CSS/vanilla JavaScript; ureq/TLS, serde, serde_json, chrono and dirs. NSIS packaging is unsigned and requires WebView2.
 
 ```mermaid
 flowchart LR
-  A[Existing CLI sign-in files] --> B[Native Rust provider adapters]
+  A[Existing CLI sign-in files] --> B[Native usage adapters]
   B --> C[Fixed provider HTTPS endpoints]
   C --> B
-  B --> D[Usage-only projection and in-memory cache]
+  B --> D[Usage-only projection and cache]
   D --> E[Local Tauri IPC]
-  E --> F[Bundled dock UI]
+  E --> F[Dock UI]
+  F --> G[Native Quick Launch]
+  G --> H[Windows app registration or local executable]
+  G --> I[Local path preferences]
 ```
 
-The prototype uses existing Claude Code and Codex sign-ins and non-publicly-established account usage interfaces. Supported authentication must be established before distribution; Anthropic subscription credential restrictions require particular review. No API key or billing integration is implemented. The UI shows percentage used and provider-reported reset timestamps; missing windows are not fabricated. Startup and five-minute refresh share a cache, so manual refresh may be stale. Dock placement is not persisted.
+The usage backend uses existing CLI sign-ins and non-publicly-established account usage interfaces. Supported authentication must be established before distribution. No API billing integration exists. Usage shows percentage used and provider reset times; manual refresh may be stale.
 
-## Migration
+Quick Launch is separate from usage retrieval. The launcher uses fixed PowerShell scripts for Start-menu discovery and file selection, validates app IDs and executable names, and invokes Windows ShellExecute without extra arguments. Locally selected paths are persisted. Publisher signatures are not validated yet.
 
-Extract the usage-only package from the upstream checkout, resolve shared lockfile/icon references, review licensing and artwork, rename application identity and establish an independent build. Proposed layout: src-tauri/, ui/, tests/, docs/ and .github/. No source files are included in this documentation bootstrap.
+## Standalone archive layout
+
+- `src/main.rs`: usage clients, parsers, docking and IPC.
+- `src/launcher.rs`: app discovery, file selection and launch.
+- `ui/`: bundled HTML/CSS/JavaScript.
+- `Cargo.toml`, `Cargo.lock`, `build.rs`, `rust-toolchain.toml`: build configuration.
+- `tauri.conf.json`, `icons/`: application and installer configuration/assets.
+
+Archive version: 1.26.6. Full repository source migration and independent build verification remain separate from this documentation update.
