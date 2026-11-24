@@ -8,6 +8,12 @@ A security-first, local-first Windows desktop dock for monitoring Claude Code an
 
 A standalone Windows x64 source archive exists. This is experimental, pre-release software; no validated public installer is available.
 
+## Public release status
+
+The GitHub repository is public, but the application source has not yet been migrated to the main branch. Windows SignTool is installed in the local development environment; neither checked certificate store contains a usable code-signing certificate. A publicly trusted signing identity and a validated signed installer are outstanding. Live usage monitoring also requires a supported provider authentication approach before distribution, particularly given Anthropic's restrictions on third-party subscription credential use.
+
+See [Release readiness](docs/RELEASE_READINESS.md) for the outstanding gates. No official downloadable installer is available.
+
 ## Features
 
 - Hover over the grip to reveal provider rings; drag to move between screen edges and monitors.
