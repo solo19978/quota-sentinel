@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::{
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
     sync::Mutex,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -26,14 +26,16 @@ struct Limit {
 }
 
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct Usage {
     status: &'static str,
     limits: Vec<Limit>,
+    last_updated_ms: Option<u64>,
 }
 
 impl Usage {
     fn unavailable(status: &'static str) -> Self {
-        Self { status, limits: Vec::new() }
+        Self { status, limits: Vec::new(), last_updated_ms: None }
     }
 }
 
@@ -43,7 +45,39 @@ struct UsagePair {
     codex: Usage,
 }
 
-type Cache = Mutex<Option<(Instant, UsagePair)>>;
+#[derive(Default)]
+struct CachedUsage {
+    claude: Option<(Instant, Usage)>,
+    codex: Option<(Instant, Usage)>,
+    claude_stamp: Option<(SystemTime, u64)>,
+}
+
+type Cache = Mutex<CachedUsage>;
+
+fn now_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
+fn session_stamp(path: &Path) -> Option<(SystemTime, u64)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
+fn refresh_due(cached: &Option<(Instant, Usage)>, requested: bool) -> bool {
+    cached.as_ref().is_none_or(|(checked, usage)| {
+        checked.elapsed() >= REFRESH_INTERVAL || (requested && usage.status != "rate-limited")
+    })
+}
+
+fn keep_last_reading(mut current: Usage, previous: Option<&Usage>) -> Usage {
+    if current.status != "ok" {
+        if let Some(previous) = previous {
+            current.limits = previous.limits.clone();
+            current.last_updated_ms = previous.last_updated_ms;
+        }
+    }
+    current
+}
 
 fn read_json(reader: impl Read) -> Option<Value> {
     let mut bytes = Vec::new();
@@ -82,7 +116,7 @@ fn request_json(request: ureq::Request) -> Result<Value, &'static str> {
             read_json(response.into_reader()).ok_or("unsupported")
         }
         Ok(response) if (300..400).contains(&response.status()) => Err("redirect"),
-        Err(ureq::Error::Status(401 | 403, _)) => Err("sign-in"),
+        Err(ureq::Error::Status(401 | 403, _)) => Err("rejected"),
         Err(ureq::Error::Status(429, _)) => Err("rate-limited"),
         _ => Err("unavailable"),
     }
@@ -142,24 +176,27 @@ fn result(response: Result<Value, &'static str>, parse: fn(&Value) -> Vec<Limit>
         Ok(response) => {
             let limits = parse(&response);
             let status = if limits.is_empty() { "unsupported" } else { "ok" };
-            Usage { status, limits }
+            Usage { status, limits, last_updated_ms: (status == "ok").then(now_ms) }
         }
         Err(status) => Usage::unavailable(status),
     }
 }
 
-fn claude(agent: &ureq::Agent, home: &Path) -> Usage {
-    let Some(json) = credential_json(&home.join(".claude").join(".credentials.json")) else {
-        return Usage::unavailable("sign-in");
+fn claude_session_path(home: &Path) -> PathBuf {
+    home.join(".claude").join(".credentials.json")
+}
+
+fn claude(agent: &ureq::Agent, path: &Path) -> Usage {
+    let Some(json) = credential_json(path) else {
+        return Usage::unavailable("claude-session-missing");
     };
     let credential = json.get("claudeAiOauth").unwrap_or(&json);
     let Some(token) = header_value(&credential["accessToken"]) else {
-        return Usage::unavailable("sign-in");
+        return Usage::unavailable("claude-session-missing");
     };
     if let Some(expiry) = credential["expiresAt"].as_u64() {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-        if u128::from(expiry) <= now.as_millis() {
-            return Usage::unavailable("sign-in");
+        if expiry <= now_ms() {
+            return Usage::unavailable("claude-session-expired");
         }
     }
     result(request_json(agent.get(CLAUDE_URL)
@@ -178,27 +215,32 @@ fn codex(agent: &ureq::Agent, home: &Path) -> Usage {
     ) else {
         return Usage::unavailable("sign-in");
     };
-    result(request_json(agent.get(CODEX_URL)
+    let response = request_json(agent.get(CODEX_URL)
         .set("Authorization", &format!("Bearer {token}"))
-        .set("ChatGPT-Account-Id", account)), codex_limits)
+        .set("ChatGPT-Account-Id", account));
+    result(response.map_err(|status| if status == "rejected" { "sign-in" } else { status }), codex_limits)
 }
 
 #[tauri::command]
-async fn refresh(app: tauri::AppHandle) -> Result<UsagePair, &'static str> {
+async fn refresh(app: tauri::AppHandle, force: bool) -> Result<UsagePair, &'static str> {
     use tauri::Manager;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Cache>();
         let mut cache = state.lock().map_err(|_| "unavailable")?;
-        if let Some((fetched, usage)) = cache.as_ref() {
-            if fetched.elapsed() < REFRESH_INTERVAL {
-                return Ok(usage.clone());
-            }
-        }
         let home = dirs::home_dir().ok_or("unavailable")?;
-        let agent = agent();
-        let usage = UsagePair { claude: claude(&agent, &home), codex: codex(&agent, &home) };
-        *cache = Some((Instant::now(), usage.clone()));
-        Ok(usage)
+        let path = claude_session_path(&home);
+        let stamp = session_stamp(&path);
+        if refresh_due(&cache.claude, force || stamp != cache.claude_stamp) {
+            let usage = keep_last_reading(claude(&agent(), &path), cache.claude.as_ref().map(|(_, usage)| usage));
+            cache.claude = Some((Instant::now(), usage));
+            cache.claude_stamp = stamp;
+        }
+        if refresh_due(&cache.codex, force) {
+            cache.codex = Some((Instant::now(), codex(&agent(), &home)));
+        }
+        let (_, claude) = cache.claude.as_ref().ok_or("unavailable")?;
+        let (_, codex) = cache.codex.as_ref().ok_or("unavailable")?;
+        Ok(UsagePair { claude: claude.clone(), codex: codex.clone() })
     })
     .await
     .map_err(|_| "unavailable")?
@@ -318,10 +360,10 @@ fn place_dock(window: &tauri::WebviewWindow, monitor: &tauri::Monitor, anchor: P
     let (logical_width, logical_height) = match (edge.horizontal(), view) {
         (true, DockView::Grip) => (52.0, 22.0),
         (true, DockView::Rings) => (176.0, 60.0),
-        (true, DockView::Details) => (282.0, 220.0),
+        (true, DockView::Details) => (282.0, 250.0),
         (false, DockView::Grip) => (22.0, 52.0),
         (false, DockView::Rings) => (60.0, 176.0),
-        (false, DockView::Details) => (350.0, 176.0),
+        (false, DockView::Details) => (350.0, 206.0),
     };
     let width = pixels(logical_width, scale).min(area.size.width);
     let height = pixels(logical_height, scale).min(area.size.height);
@@ -403,6 +445,24 @@ fn quit(app: tauri::AppHandle) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn claude_failures_preserve_usage_and_manual_refresh_respects_rate_limits() {
+        let reading = Usage {
+            status: "ok",
+            limits: vec![Limit { label: "Session", used: 42.0, reset_ms: Some(1000) }],
+            last_updated_ms: Some(500),
+        };
+        let stale = keep_last_reading(Usage::unavailable("rejected"), Some(&reading));
+        assert_eq!(stale.status, "rejected");
+        assert_eq!(stale.limits[0].used, 42.0);
+        assert_eq!(stale.last_updated_ms, Some(500));
+        let cache = Some((Instant::now(), stale));
+        assert!(!refresh_due(&cache, false));
+        assert!(refresh_due(&cache, true));
+        let limited = Some((Instant::now(), Usage::unavailable("rate-limited")));
+        assert!(!refresh_due(&limited, true));
+    }
+
     use super::*;
     use std::{io::Write, net::TcpListener};
 

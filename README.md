@@ -16,6 +16,8 @@ The Rust backend reads the existing CLI sign-in files and sends each credential 
 
 Live usage depends on provider endpoints that may change. Review each provider's current authentication and distribution terms before sharing a build with live credential access. Anthropic documents restrictions on third-party use of Claude subscription credentials. [Anthropic authentication and credential-use policy](https://code.claude.com/docs/en/legal-and-compliance)
 
+If Claude usage cannot be refreshed, the dock keeps the last reading in memory and marks it stale. It checks for changes to the Claude Code sign-in file every five seconds and re-reads the current session when it changes. The Refresh button can retry immediately unless the provider has rate-limited the app.
+
 ## Build from source
 
 Use Windows x64, the Rust MSVC toolchain, Visual Studio C++ build tools, Node.js with npm, and WebView2. Rust is pinned in `rust-toolchain.toml`.

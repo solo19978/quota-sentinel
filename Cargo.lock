@@ -2435,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "quota-sentinel"
-version = "1.26.7"
+version = "1.26.8"
 dependencies = [
  "chrono",
  "dirs 5.0.1",

@@ -27,4 +27,4 @@ Quick Launch is separate from usage retrieval. The launcher uses fixed Windows a
 - `Cargo.toml`, `Cargo.lock`, `build.rs`, `rust-toolchain.toml`: build configuration.
 - `tauri.conf.json`, `icons/`: application and installer configuration/assets.
 
-Source version: 1.26.7. The Windows build and verification workflow runs on manual dispatch, tests the locked Rust dependencies and builds separate checksummed unsigned EXE and installer artifacts. Independent build and runtime verification remain pending.
+Source version: 1.26.8. The Windows build and verification workflow runs on manual dispatch, tests the locked Rust dependencies and builds separate checksummed unsigned EXE and installer artifacts. Independent build and runtime verification remain pending.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.26.8
+
+- Keep the last successful Claude usage reading in memory after a failed refresh and show when it was last updated.
+- Show Awaiting refresh when a stale reset time passes.
+- Detect Claude Code sign-in file changes every five seconds and allow immediate manual retry unless rate-limited.
+- Distinguish rejected provider requests from missing or expired local sessions; Claude Code handles token renewal.
+- Supplied release pack includes unsigned Windows x64 installer, standalone executable, source archive and SHA-256 checksums.
+- Supplied notes report six automated tests and a mock UI check passed; live-session recovery and clean-machine installation remain unverified.
+
 ## 1.26.7 — development snapshot, not a public release
 
 - Migrate the complete supplied Windows application source into the repository.

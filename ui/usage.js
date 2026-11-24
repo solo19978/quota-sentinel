@@ -16,6 +16,9 @@ let dragEnding = false;
 let dragReady = Promise.resolve();
 let dragMovePending = false;
 let refreshTimer;
+let checkingUsage = false;
+let refreshRequested = false;
+let lastReading;
 let openingApp = false;
 const resetTime = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -26,6 +29,9 @@ const resetTime = new Intl.DateTimeFormat(undefined, {
 
 const messages = {
   'sign-in': 'Sign in again through the provider’s CLI.',
+  'claude-session-missing': 'No readable Claude Code session. Open Claude Code to check.',
+  'claude-session-expired': 'Waiting for Claude Code to renew its session.',
+  'rejected': 'Claude’s usage request was rejected. Check /usage in Claude Code.',
   'unsupported': 'No supported usage windows were returned.',
   'rate-limited': 'The provider asked us to wait. Try again in a few minutes.',
   'redirect': 'The provider redirected the request. It was blocked.',
@@ -49,9 +55,11 @@ function renderDetails() {
     usagePanel.textContent = 'Checking usage…';
     return;
   }
-  if (usage.status !== 'ok') {
-    usagePanel.textContent = messages[usage.status] ?? messages.unavailable;
-    return;
+  const stale = usage.status !== 'ok';
+  if (stale) {
+    usagePanel.append(element('div', messages[usage.status] ?? messages.unavailable, 'usage-status'));
+    if (!usage.lastUpdatedMs) return;
+    usagePanel.append(element('small', `Last updated ${resetTime.format(usage.lastUpdatedMs)}`, 'usage-stamp'));
   }
 
   for (const limit of usage.limits) {
@@ -64,7 +72,10 @@ function renderDetails() {
     progress.setAttribute('aria-label', `${limit.label} usage`);
     row.append(label, progress);
     if (limit.resetMs && Number.isFinite(new Date(limit.resetMs).getTime())) {
-      row.append(element('small', `Resets ${resetTime.format(limit.resetMs)}`));
+      const text = stale && limit.resetMs <= Date.now()
+        ? 'Awaiting refresh'
+        : `Resets ${resetTime.format(limit.resetMs)}`;
+      row.append(element('small', text));
     }
     usagePanel.append(row);
   }
@@ -75,11 +86,13 @@ function updateRings() {
     const button = document.getElementById(id);
     const usage = usageByProvider[id];
     const limit = usage?.limits?.[0];
+    const stale = Boolean(limit && usage.status !== 'ok');
+    button.toggleAttribute('data-stale', stale);
     const percent = limit ? `${Math.round(limit.used)}%` : '—';
     button.querySelector('.percent').textContent = percent;
     button.querySelector('.ring').style.setProperty('--used', limit ? `${limit.used}%` : '0%');
     const action = `Open ${desktopApps[id]}`;
-    button.setAttribute('aria-label', limit ? `${action}, ${percent} of usage limit used` : action);
+    button.setAttribute('aria-label', limit ? `${action}, ${percent} used${stale ? ' at last update' : ''}` : action);
   }
 }
 
@@ -118,28 +131,46 @@ function showView(view, provider) {
   layout.catch(() => {});
 }
 
-async function refresh() {
-  if (refreshButton.disabled) return;
+async function refresh(force = false) {
+  if (checkingUsage) {
+    refreshRequested ||= force;
+    return;
+  }
   clearTimeout(refreshTimer);
-  refreshButton.disabled = true;
-  refreshButton.textContent = 'Checking…';
+  checkingUsage = true;
+  if (force) {
+    refreshButton.disabled = true;
+    refreshButton.textContent = 'Checking…';
+  }
   try {
-    usageByProvider = await invoke('refresh');
+    usageByProvider = await invoke('refresh', { force });
   } catch {
     usageByProvider = {
-      claude: { status: 'unavailable' },
+      claude: { ...usageByProvider.claude, status: 'unavailable' },
       codex: { status: 'unavailable' },
     };
   } finally {
-    updateRings();
-    renderDetails();
+    const reading = JSON.stringify([usageByProvider, usageByProvider.claude?.limits?.map(
+      limit => usageByProvider.claude.status !== 'ok' && limit.resetMs <= Date.now()
+    )]);
+    if (reading !== lastReading) {
+      lastReading = reading;
+      updateRings();
+      renderDetails();
+    }
+    checkingUsage = false;
     refreshButton.disabled = false;
     refreshButton.textContent = 'Refresh';
-    refreshTimer = setTimeout(refresh, 5 * 60 * 1000);
+    if (refreshRequested) {
+      refreshRequested = false;
+      void refresh(true);
+    } else {
+      refreshTimer = setTimeout(refresh, 5000);
+    }
   }
 }
 
-refreshButton.addEventListener('click', refresh);
+refreshButton.addEventListener('click', () => refresh(true));
 document.getElementById('quit').addEventListener('click', () => invoke('quit'));
 grip.addEventListener('pointerenter', () => {
   if (requestedView === 'grip') showView('rings');

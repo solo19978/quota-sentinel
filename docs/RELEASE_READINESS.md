@@ -1,11 +1,11 @@
 # Release readiness
 
-Status as of 24 November 2026: development snapshot 1.26.7; no public application release approved.
+Status as of 24 November 2026: development snapshot 1.26.8; no public application release approved.
 
 | Gate | Status |
 | --- | --- |
 | Public repository and documentation | Present |
-| Standalone application source migration | Version 1.26.7 source present |
+| Standalone application source migration | Version 1.26.8 source present |
 | Windows build workflow | Manual test/build workflow present; execution not yet verified |
 | Windows SignTool | Installed locally, per development report |
 | Publicly trusted signing identity | Pending; neither checked local certificate store has a usable code-signing certificate |

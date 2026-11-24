@@ -1,6 +1,6 @@
 [package]
 name = "quota-sentinel"
-version = "1.26.7"
+version = "1.26.8"
 edition = "2021"
 license = "MIT"
 description = "A compact Windows usage dock for Claude Code and OpenAI Codex"
