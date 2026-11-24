@@ -1,5 +1,9 @@
 # quota-sentinel
 
+![quota-sentinel desktop dock showing Claude Code and OpenAI Codex usage](docs/images/quota-sentinel-preview.png)
+
+*Illustrative preview with example usage figures.*
+
 An experimental Windows x64 dock for Claude Code and OpenAI Codex usage.
 
 - Hover over the dotted grip to reveal both rings. Drag it to move the dock between screen edges or monitors.
