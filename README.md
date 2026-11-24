@@ -2,25 +2,27 @@
 
 **Your limits. Your data. Your control.**
 
-QuotaSentinel is a security-first, local-first desktop monitor for AI subscription usage. Its initial focus is Claude Code and OpenAI Codex session and weekly allowances, with provider-reported reset times.
+A security-first, local-first Windows desktop dock for monitoring Claude Code and OpenAI Codex subscription usage and quickly launching Claude Desktop and ChatGPT Desktop.
 
-## Status
+## Current development version: 1.26.6
 
-Pre-release development. A Windows x64 usage-only prototype (previously branded Codenotch Usage 1.26.5) exists locally. This repository is being established as a standalone project; no public installer or standalone release is available yet.
+A standalone Windows x64 source archive exists. This is experimental, pre-release software; no validated public installer is available.
 
-## Prototype functionality
+## Features
 
-- Compact hover-to-expand dock with Claude and Codex usage rings.
-- Four-edge docking, draggable placement and reduced-motion support.
-- Session and weekly utilisation, where reported by the provider, and local-time reset display.
-- Startup and approximately five-minute refresh; manual refresh may return cached data.
-- Rust, Tauri 2, WebView2 and bundled HTML/CSS/JavaScript.
+- Hover over the grip to reveal provider rings; drag to move between screen edges and monitors.
+- Hover over a ring to see session and weekly utilisation and reset times, where reported by the provider.
+- Click the orange ring to launch Claude Desktop or the blue ring to launch ChatGPT Desktop.
+- Windows Start-menu discovery with manual executable selection as fallback; selected paths are saved locally.
+- Reduced-motion support and approximately five-minute usage refresh. Manual refresh may return cached data.
 
-## Security approach
+## Security and privacy
 
-Minimal permissions, read-only provider requests, fixed HTTPS destinations, disabled redirects, local processing and no telemetry, transcript watcher, hooks, local HTTP server or automatic updater in the prototype. Existing CLI credentials are sensitive; supported provider authentication must be resolved before distribution. This is not a security certification.
+Native Rust backend, fixed HTTPS provider destinations, disabled redirects and environment proxy discovery, usage-only UI data, no telemetry, transcript tracking, hooks, local HTTP server or updater. Quick Launch does not require provider credentials. Publisher signature validation is not yet implemented. Supported provider authentication and distribution permissions remain release blockers. These controls are not a security certification.
 
-API credits, billing, multiple accounts and non-Windows platforms are not implemented. Subscription limits and API billing are distinct.
+## Requirements and build
+
+Windows x64, WebView2, native Windows Claude Code and Codex CLI sign-ins for live usage. The standalone source archive uses Rust/MSVC, Visual Studio C++ build tools, Node.js/npm and Tauri 2. Build instructions apply after the complete source is migrated into this repository. API credits and billing, multiple accounts and other operating systems are outside current implementation.
 
 ## Documentation
 
@@ -31,6 +33,6 @@ API credits, billing, multiple accounts and non-Windows platforms are not implem
 - [Roadmap](ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
-- [Attribution and licensing status](NOTICE.md)
+- [Attribution](NOTICE.md)
 
-Installation instructions will follow standalone migration, licensing review and release validation. Do not distribute the unsigned local prototype as an official release.
+Derived from [CodeNotch](https://github.com/vinzdg/codenotch). The standalone archive includes the upstream MIT notice. Public distribution remains pending validation.
