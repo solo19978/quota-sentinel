@@ -1,5 +1,7 @@
 # quota-sentinel
 
+[Download the latest Windows release](https://github.com/solo19978/quota-sentinel/releases/latest) · [Project website](https://solo19978.github.io/quota-sentinel/)
+
 ![quota-sentinel desktop dock showing Claude Code and OpenAI Codex usage](docs/images/quota-sentinel-preview.png)
 
 *Illustrative preview with example usage figures.*

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>quota-sentinel | Claude Code and Codex usage on Windows</title>
+  <meta name="description" content="A Windows desktop dock for Claude Code and OpenAI Codex usage limits. See session and weekly usage, reset times, and download the latest release.">
+  <link rel="canonical" href="https://solo19978.github.io/quota-sentinel/">
+  <style>
+    :root { color-scheme: dark; font: 16px/1.55 system-ui, sans-serif; color: #eef3fb; background: #101722; }
+    body { margin: 0; }
+    main { max-width: 960px; margin: auto; padding: clamp(24px, 6vw, 72px); }
+    h1 { font-size: clamp(2.5rem, 7vw, 4.75rem); line-height: 1; letter-spacing: -.06em; margin: 0; }
+    .intro { max-width: 55ch; color: #c3cede; font-size: 1.13rem; }
+    .links { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+    a { color: #a7ceff; }
+    .links a { padding: 9px 15px; border: 1px solid #59708b; border-radius: 8px; text-decoration: none; }
+    .links a:first-child { color: #111a29; background: #a7ceff; border-color: #a7ceff; font-weight: 650; }
+    img { display: block; width: 100%; height: auto; border-radius: 12px; }
+    figure { margin: 28px 0; }
+    figcaption, .requirements { color: #c3cede; font-size: .9rem; }
+    figcaption { margin-top: 6px; }
+    h2 { margin-top: 24px; font-size: 1.25rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>quota-sentinel</h1>
+    <p class="intro">See Claude Code and OpenAI Codex usage limits and reset times in a small Windows desktop dock.</p>
+    <nav class="links" aria-label="Project links">
+      <a href="https://github.com/solo19978/quota-sentinel/releases/latest">Download latest Windows release</a>
+      <a href="https://github.com/solo19978/quota-sentinel">View source on GitHub</a>
+    </nav>
+    <p class="requirements">Windows x64 with Microsoft Edge WebView2. The current downloads are unsigned.</p>
+    <figure>
+      <img src="images/quota-sentinel-preview.png" alt="Quota-sentinel dock with orange Claude and blue Codex rings and a usage detail card">
+      <figcaption>Illustrative preview with example usage figures.</figcaption>
+    </figure>
+    <h2>How it works</h2>
+    <p>Drag the grip to a screen edge. Hover to see available session and weekly usage, or click a ring to open the corresponding desktop app. Live usage relies on your existing Claude Code and Codex CLI sign-ins.</p>
+    <p><a href="https://github.com/solo19978/quota-sentinel#privacy-and-provider-compatibility">Read about privacy and provider compatibility</a>.</p>
+  </main>
+</body>
+</html>
