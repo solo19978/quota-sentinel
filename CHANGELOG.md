@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.26.13
+
+- **Claude session recovery.** Open Claude Code from the usage card when the native CLI session is missing or expired. Claude Code handles sign-in and renewal, and the dock retries when its session file changes.
+- **Persistent usage-only cache.** The last successful Claude percentages, reset times, and update timestamp survive a dock restart. The cached reading is marked stale when it cannot be refreshed. The cache contains no credentials.
+- **Themes and dock redesign.** Choose System, Light, Dark, or Forest. The expanded dock has larger rings with rounded arcs and a roomier usage card.
+- **Quit and single-instance behavior.** Quit from the card, dock context menu, or Windows tray. A second launch of this version shows the existing dock.
+
 ## 1.26.8
 
 - Keep the last successful Claude usage reading in memory after a failed refresh and show when it was last updated.

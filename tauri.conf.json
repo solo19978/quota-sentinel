@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "quota-sentinel",
-  "version": "1.26.8",
+  "version": "1.26.13",
   "identifier": "io.github.solo19978.quota-sentinel",
   "build": { "frontendDist": "ui" },
   "app": {

@@ -55,18 +55,33 @@ impl Drop for Apartment {
     }
 }
 
-fn activate_packaged(provider: DesktopApp) -> windows::core::Result<()> {
-    // Fixed package registrations verified on Windows. Other installations use the picker.
-    let id = match provider {
-        DesktopApp::Claude => w!("Claude_pzs8sxrjxfjjc!Claude"),
-        DesktopApp::Codex => w!("OpenAI.Codex_2p2nqsd0c76g0!App"),
-    };
+fn activate_packaged(id: PCWSTR) -> windows::core::Result<()> {
     unsafe {
         let manager: IApplicationActivationManager =
             CoCreateInstance(&ApplicationActivationManager, None, CLSCTX_INPROC_SERVER)?;
         manager.ActivateApplication(id, PCWSTR::null(), AO_NONE)?;
     }
     Ok(())
+}
+
+pub fn open_claude_code() -> Result<bool, &'static str> {
+    if let (Some(home), Some(local)) = (dirs::home_dir(), dirs::data_local_dir()) {
+        let native = home.join(".local/bin/claude.exe");
+        let npm = dirs::data_dir().map(|dir| dir.join("npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe"));
+        let claude = std::iter::once(native).chain(npm).find(|path| {
+            executable_path(DesktopApp::Claude, path) && !path.to_string_lossy().contains(';') && path.is_file()
+        });
+        let terminal = local.join("Microsoft/WindowsApps/wt.exe");
+        if let Some(claude) = claude {
+            if std::process::Command::new(terminal).arg("new-tab").arg(claude).current_dir(home).spawn().is_ok() {
+                return Ok(true);
+            }
+        }
+    }
+    let _apartment = Apartment::enter().map_err(|_| "Could not initialize the Windows launcher.")?;
+    activate_packaged(w!("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"))
+        .map(|()| false)
+        .map_err(|_| "Could not open Windows Terminal. Open Claude Code from Start or a terminal.")
 }
 
 fn choose(provider: DesktopApp) -> windows::core::Result<Option<PathBuf>> {
@@ -125,7 +140,11 @@ pub fn launch(provider: DesktopApp) -> Result<&'static str, &'static str> {
             return Ok("opened");
         }
     }
-    if activate_packaged(provider).is_ok() {
+    let id = match provider {
+        DesktopApp::Claude => w!("Claude_pzs8sxrjxfjjc!Claude"),
+        DesktopApp::Codex => w!("OpenAI.Codex_2p2nqsd0c76g0!App"),
+    };
+    if activate_packaged(id).is_ok() {
         return Ok("opened");
     }
     let Some(selected) = choose(provider).map_err(|_| "Could not open the app picker.")? else {

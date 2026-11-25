@@ -6,6 +6,18 @@ const grip = document.getElementById('grip');
 const providers = { claude: 'Claude Code', codex: 'OpenAI Codex' };
 const desktopApps = { claude: 'Claude Desktop', codex: 'ChatGPT Desktop' };
 const invoke = window.__TAURI__.core.invoke;
+const theme = document.getElementById('theme');
+try {
+  const savedTheme = localStorage.getItem('quota-sentinel-theme');
+  if (Array.from(theme.options).some(option => option.value === savedTheme)) theme.value = savedTheme;
+} catch {
+  // The current theme still works if WebView storage is unavailable.
+}
+document.documentElement.dataset.theme = theme.value;
+theme.addEventListener('change', () => {
+  document.documentElement.dataset.theme = theme.value;
+  try { localStorage.setItem('quota-sentinel-theme', theme.value); } catch {}
+});
 let usageByProvider = {};
 let selected;
 let closeTimer;
@@ -57,7 +69,27 @@ function renderDetails() {
   }
   const stale = usage.status !== 'ok';
   if (stale) {
-    usagePanel.append(element('div', messages[usage.status] ?? messages.unavailable, 'usage-status'));
+    const status = element('div', messages[usage.status] ?? messages.unavailable, 'usage-status');
+    usagePanel.append(status);
+    if (selected === 'claude' && ['claude-session-missing', 'claude-session-expired'].includes(usage.status)) {
+      const action = element('div', '', 'session-action');
+      const terminal = element('button', 'Open Claude Code');
+      terminal.type = 'button';
+      terminal.addEventListener('click', async () => {
+        terminal.disabled = true;
+        try {
+          if (!await invoke('open_claude_code')) {
+            status.textContent = 'Claude Code was not found automatically. In Terminal, try claude.';
+          }
+        } catch (error) {
+          status.textContent = typeof error === 'string' ? error : 'Could not open Windows Terminal.';
+        } finally {
+          terminal.disabled = false;
+        }
+      });
+      action.append(terminal);
+      usagePanel.append(action);
+    }
     if (!usage.lastUpdatedMs) return;
     usagePanel.append(element('small', `Last updated ${resetTime.format(usage.lastUpdatedMs)}`, 'usage-stamp'));
   }
@@ -90,7 +122,9 @@ function updateRings() {
     button.toggleAttribute('data-stale', stale);
     const percent = limit ? `${Math.round(limit.used)}%` : '—';
     button.querySelector('.percent').textContent = percent;
-    button.querySelector('.ring').style.setProperty('--used', limit ? `${limit.used}%` : '0%');
+    const ring = button.querySelector('.ring');
+    ring.style.setProperty('--used', limit?.used ?? 0);
+    ring.toggleAttribute('data-empty', !limit?.used);
     const action = `Open ${desktopApps[id]}`;
     button.setAttribute('aria-label', limit ? `${action}, ${percent} used${stale ? ' at last update' : ''}` : action);
   }
@@ -172,6 +206,10 @@ async function refresh(force = false) {
 
 refreshButton.addEventListener('click', () => refresh(true));
 document.getElementById('quit').addEventListener('click', () => invoke('quit'));
+document.addEventListener('contextmenu', event => {
+  event.preventDefault();
+  void invoke('show_quit_menu').catch(() => {});
+});
 grip.addEventListener('pointerenter', () => {
   if (requestedView === 'grip') showView('rings');
 });
@@ -218,7 +256,13 @@ for (const provider of Object.keys(providers)) {
 }
 document.documentElement.addEventListener('pointerenter', () => clearTimeout(closeTimer));
 document.documentElement.addEventListener('pointerleave', () => {
+  if (document.activeElement === theme) return;
   if (dragPointer === null) closeTimer = setTimeout(() => showView('grip'), 275);
+});
+theme.addEventListener('blur', () => {
+  if (!document.documentElement.matches(':hover') && dragPointer === null) {
+    closeTimer = setTimeout(() => showView('grip'), 275);
+  }
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {

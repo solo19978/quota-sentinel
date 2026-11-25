@@ -8,6 +8,8 @@ An experimental Windows x64 dock for Claude Code and OpenAI Codex usage.
 
 - Hover over the dotted grip to reveal both rings. Drag it to move the dock between screen edges or monitors.
 - Hover over a ring to see usage and reset times. Click the orange ring to open Claude Desktop or the blue ring to open ChatGPT Desktop.
+- Right-click the dock or its Windows notification-area icon and select **Quit quota-sentinel** to stop the app. A second launch of quota-sentinel shows the existing dock.
+- Use **Theme** on either usage card to select System, Light, Dark, or Forest. The dock remembers your choice locally.
 - If Windows cannot activate the registered desktop app, choose the matching executable. The launcher saves that path in your local Windows profile.
 
 ## Requirements
@@ -20,7 +22,9 @@ The Rust backend reads the existing CLI sign-in files and sends each credential 
 
 Live usage depends on provider endpoints that may change. Review each provider's current authentication and distribution terms before sharing a build with live credential access. Anthropic documents restrictions on third-party use of Claude subscription credentials. [Anthropic authentication and credential-use policy](https://code.claude.com/docs/en/legal-and-compliance)
 
-If Claude usage cannot be refreshed, the dock keeps the last reading in memory and marks it stale. It checks for changes to the Claude Code sign-in file every five seconds and re-reads the current session when it changes. The Refresh button can retry immediately unless the provider has rate-limited the app.
+If Claude usage cannot be refreshed, the dock marks the last reading stale. It saves only the window labels, percentages, and timestamps in a local usage snapshot, so the reading survives a restart. It checks for changes to the Claude Code sign-in file every five seconds and re-reads the current session when it changes. The Refresh button can retry immediately unless the provider has rate-limited the app.
+
+If the Claude Code session is missing or expired, **Open Claude Code** opens the CLI in Windows Terminal from the standard native or npm location. Other installs can be opened manually in the fallback Terminal window. Complete sign-in in Claude Code if prompted.
 
 ## Build from source
 

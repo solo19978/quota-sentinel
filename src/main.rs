@@ -6,7 +6,7 @@ mod launcher;
 use serde::Serialize;
 use serde_json::Value;
 use std::{
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -17,10 +17,10 @@ const CODEX_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const MAX_JSON_BYTES: u64 = 1024 * 1024;
 const REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Limit {
-    label: &'static str,
+    label: String,
     used: f64,
     reset_ms: Option<u64>,
 }
@@ -53,6 +53,49 @@ struct CachedUsage {
 }
 
 type Cache = Mutex<CachedUsage>;
+
+#[derive(Serialize, serde::Deserialize)]
+struct SavedClaudeReading {
+    limits: Vec<Limit>,
+    last_updated_ms: u64,
+}
+
+fn load_claude_reading(path: &Path) -> Option<Usage> {
+    let saved: SavedClaudeReading = serde_json::from_value(credential_json(path)?).ok()?;
+    if saved.limits.is_empty() || saved.limits.len() > 2 || saved.last_updated_ms > now_ms()
+        || saved.limits.iter().any(|limit| {
+            !matches!(limit.label.as_str(), "Session" | "Weekly") || !(0.0..=100.0).contains(&limit.used)
+        })
+    {
+        return None;
+    }
+    Some(Usage {
+        status: "unavailable",
+        limits: saved.limits,
+        last_updated_ms: Some(saved.last_updated_ms),
+    })
+}
+
+fn save_claude_reading(path: &Path, reading: &Usage) -> Option<()> {
+    if reading.status != "ok" {
+        return None;
+    }
+    let saved = SavedClaudeReading {
+        limits: reading.limits.clone(),
+        last_updated_ms: reading.last_updated_ms?,
+    };
+    std::fs::create_dir_all(path.parent()?).ok()?;
+    let bytes = serde_json::to_vec(&saved).ok()?;
+    let staged = path.with_extension(format!("{}.{}.tmp", std::process::id(), now_ms()));
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&staged).ok()?;
+    let write_result = file.write_all(&bytes);
+    drop(file);
+    let result = write_result.and_then(|()| std::fs::rename(&staged, path));
+    if result.is_err() {
+        let _ = std::fs::remove_file(staged);
+    }
+    result.ok()
+}
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
@@ -142,7 +185,7 @@ fn claude_limits(value: &Value) -> Vec<Limit> {
         });
         let (entry, field) = modern.map_or((&value[key], "utilization"), |entry| (entry, "percent"));
         Some(Limit {
-            label,
+            label: label.into(),
             used: percentage(&entry[field])?,
             reset_ms: entry["resets_at"].as_str()
                 .and_then(|time| chrono::DateTime::parse_from_rfc3339(time).ok())
@@ -166,7 +209,7 @@ fn codex_limits(value: &Value) -> Vec<Limit> {
             let reset_ms = entry["reset_at"].as_u64()
                 .or_else(|| now.checked_add(entry["reset_after_seconds"].as_u64()?))
                 .and_then(|seconds| seconds.checked_mul(1000));
-            Some(Limit { label, used: percentage(&entry["used_percent"])?, reset_ms })
+            Some(Limit { label: label.into(), used: percentage(&entry["used_percent"])?, reset_ms })
         })
         .collect()
 }
@@ -231,7 +274,20 @@ async fn refresh(app: tauri::AppHandle, force: bool) -> Result<UsagePair, &'stat
         let path = claude_session_path(&home);
         let stamp = session_stamp(&path);
         if refresh_due(&cache.claude, force || stamp != cache.claude_stamp) {
-            let usage = keep_last_reading(claude(&agent(), &path), cache.claude.as_ref().map(|(_, usage)| usage));
+            let snapshot_path = app.path().app_local_data_dir().ok().map(|dir| dir.join("claude-usage.json"));
+            let current = claude(&agent(), &path);
+            if current.status == "ok" {
+                if let Some(path) = &snapshot_path {
+                    let _ = save_claude_reading(path, &current);
+                }
+            }
+            let disk = if current.status != "ok" && cache.claude.is_none() {
+                snapshot_path.as_deref().and_then(load_claude_reading)
+            } else {
+                None
+            };
+            let previous = cache.claude.as_ref().map(|(_, usage)| usage).or(disk.as_ref());
+            let usage = keep_last_reading(current, previous);
             cache.claude = Some((Instant::now(), usage));
             cache.claude_stamp = stamp;
         }
@@ -247,12 +303,30 @@ async fn refresh(app: tauri::AppHandle, force: bool) -> Result<UsagePair, &'stat
 }
 
 fn main() {
+    use tauri::tray::TrayIconBuilder;
     use tauri::Manager;
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
+        }))
         .manage(Cache::default())
         .manage(Mutex::new(Dock::default()))
+        .on_menu_event(|app, event| {
+            if event.id() == "quit" {
+                quit(app.clone());
+            }
+        })
         .setup(|app| {
             let window = app.get_webview_window("main").expect("Missing notch window");
+            let mut tray = TrayIconBuilder::with_id("quota-sentinel")
+                .tooltip("quota-sentinel")
+                .menu(&quit_menu(app.handle())?);
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
             if let Some(monitor) = window.primary_monitor()? {
                 let area = monitor.work_area();
                 let scale = monitor.scale_factor();
@@ -267,9 +341,20 @@ fn main() {
             window.show()?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![refresh, set_dock_view, drag_dock, quit, launch_desktop])
+        .invoke_handler(tauri::generate_handler![refresh, set_dock_view, drag_dock, quit, show_quit_menu, launch_desktop, open_claude_code])
         .run(tauri::generate_context!())
         .expect("Could not start quota-sentinel");
+}
+
+fn quit_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    let quit = tauri::menu::MenuItem::with_id(app, "quit", "Quit quota-sentinel", true, None::<&str>)?;
+    tauri::menu::Menu::with_items(app, &[&quit])
+}
+
+#[tauri::command]
+async fn show_quit_menu(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    let menu = quit_menu(&app).map_err(|error| error.to_string())?;
+    window.popup_menu(&menu).map_err(|error| error.to_string())
 }
 
 #[derive(Clone, Copy, serde::Deserialize)]
@@ -294,6 +379,17 @@ async fn launch_desktop(provider: DesktopApp) -> Result<&'static str, &'static s
 }
 
 type Point = tauri::PhysicalPosition<i32>;
+
+#[tauri::command]
+async fn open_claude_code() -> Result<bool, &'static str> {
+    #[cfg(target_os = "windows")]
+    return tauri::async_runtime::spawn_blocking(launcher::open_claude_code)
+        .await
+        .map_err(|_| "Could not open Windows Terminal.")?;
+
+    #[cfg(not(target_os = "windows"))]
+    Err("This shortcut is available on Windows.")
+}
 
 #[derive(Clone, Copy, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -359,11 +455,11 @@ fn place_dock(window: &tauri::WebviewWindow, monitor: &tauri::Monitor, anchor: P
     let scale = monitor.scale_factor();
     let (logical_width, logical_height) = match (edge.horizontal(), view) {
         (true, DockView::Grip) => (52.0, 22.0),
-        (true, DockView::Rings) => (176.0, 60.0),
-        (true, DockView::Details) => (282.0, 250.0),
+        (true, DockView::Rings) => (220.0, 66.0),
+        (true, DockView::Details) => (308.0, 390.0),
         (false, DockView::Grip) => (22.0, 52.0),
-        (false, DockView::Rings) => (60.0, 176.0),
-        (false, DockView::Details) => (350.0, 206.0),
+        (false, DockView::Rings) => (66.0, 220.0),
+        (false, DockView::Details) => (378.0, 316.0),
     };
     let width = pixels(logical_width, scale).min(area.size.width);
     let height = pixels(logical_height, scale).min(area.size.height);
@@ -446,10 +542,32 @@ fn quit(app: tauri::AppHandle) {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn saved_claude_reading_round_trips_as_stale_and_is_replaced() {
+        let folder = std::env::temp_dir().join(format!("quota-sentinel-reading-{}-{}", std::process::id(), now_ms()));
+        let path = folder.join("claude-usage.json");
+        let mut reading = Usage {
+            status: "ok",
+            limits: vec![Limit { label: "Session".into(), used: 42.0, reset_ms: Some(1000) }],
+            last_updated_ms: Some(500),
+        };
+        save_claude_reading(&path, &reading).unwrap();
+        reading.limits[0].used = 51.0;
+        save_claude_reading(&path, &reading).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let schema: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(schema.as_object().unwrap().len(), 2);
+        let saved = load_claude_reading(&path).unwrap();
+        assert_eq!(saved.status, "unavailable");
+        assert_eq!(saved.limits[0].used, 51.0);
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(folder).unwrap();
+    }
+
+    #[test]
     fn claude_failures_preserve_usage_and_manual_refresh_respects_rate_limits() {
         let reading = Usage {
             status: "ok",
-            limits: vec![Limit { label: "Session", used: 42.0, reset_ms: Some(1000) }],
+            limits: vec![Limit { label: "Session".into(), used: 42.0, reset_ms: Some(1000) }],
             last_updated_ms: Some(500),
         };
         let stale = keep_last_reading(Usage::unavailable("rejected"), Some(&reading));
