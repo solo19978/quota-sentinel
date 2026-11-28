@@ -43,7 +43,3 @@ On GitHub, run **Windows build and verification** manually from the Actions tab.
 - `src/launcher.rs` contains native Windows app activation, launching, and file selection.
 - `ui/` contains the bundled HTML, CSS, and JavaScript.
 - `tauri.conf.json` configures the window, WebView security policy, and installer.
-
-## Attribution
-
-The project derives from [CodeNotch](https://github.com/vinzdg/codenotch), including its Windows prototype and provider artwork. The upstream MIT notice is preserved in [LICENSE](LICENSE). Provider marks identify the corresponding services.
